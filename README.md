@@ -4,7 +4,9 @@
 Au Bout du Fil unnoficial API
 =============================
 
-Unnoficial API endpoints for the [Au Bout du Fil][adbf] website using go.
+Unnoficial API endpoints for the [Au Bout du Fil][abdf] website using go.
+
+A running server is available at https://auboutdufil.shywim.fr
 
 ## Usage
 
@@ -13,7 +15,7 @@ Unnoficial API endpoints for the [Au Bout du Fil][adbf] website using go.
 
 ## Response format
 
-The server response with JSON data with the following model:
+The server answers with JSON data with the following model:
 
  - `title`: Title of the audio track
  - `artist`: Artist of the audio track
