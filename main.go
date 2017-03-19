@@ -241,6 +241,7 @@ func main() {
 	var (
 		port = flag.String("p", "14000", "Port used for server")
 	)
+	flag.Parse()
 
 	server(*port)
 }
