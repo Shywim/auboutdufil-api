@@ -1,10 +1,10 @@
 
 [![Free music](http://img.auboutdufil.com/logo32.png)][abdf]
 
-Au Bout du Fil unnoficial API
+Au Bout du Fil unnofficial API
 =============================
 
-Unnoficial API endpoints for the [Au Bout du Fil][abdf] website using go.
+Unnofficial API endpoints for the [Au Bout du Fil][abdf] website using go.
 
 A running server is available at https://auboutdufil.shywim.fr
 
