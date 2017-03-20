@@ -211,8 +211,11 @@ func HandleLatest(w http.ResponseWriter, r *http.Request) {
 	tracks, found := cache.Get("latest")
 	if !found {
 		log.Info("Cache expired, scraping data...")
-		tracks = scrapePage(baseUrl)
-		cache.Set("latest", tracks, 0)
+		scrapeTracks := scrapePage(baseUrl)
+		scrapeTracks = append(scrapeTracks, scrapePage(baseUrl+"/index.php?page=2")...)
+		scrapeTracks = append(scrapeTracks, scrapePage(baseUrl+"/index.php?page=3")...)
+		cache.Set("latest", scrapeTracks, 0)
+		tracks = scrapeTracks
 	}
 
 	body, err := json.Marshal(tracks)
