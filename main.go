@@ -139,7 +139,14 @@ func parseAudioData(node *html.Node) (err error, track audio) {
 		log.Warn("Incorrect html data while searching for download url, layout may have changed")
 		return errors.New("Malformed html"), track
 	}
-	track.DownloadURL = strings.Replace(scrape.Attr(downloadUrlTag[0], "href"), "http://www.auboutdufil.com/get.php?fla=", "", 1)
+	tmpUrl := scrape.Attr(downloadUrlTag[0], "href")
+	resp, err := http.Head(tmpUrl)
+	if err != nil {
+		log.Warn("Unable to query download url")
+		track.DownloadURL = tmpUrl
+	} else {
+		track.DownloadURL = resp.Request.URL.String()
+	}
 
 	// additional infos
 	additionalInfosParent, ok := scrape.Find(node.Parent, scrape.ByClass("legenddata"))
