@@ -422,8 +422,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 	w.Write(body)
 }
 
+func redirectHomepage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	http.Redirect(w, r, "https://github.com/Shywim/auboutdufil-api", http.StatusTemporaryRedirect)
+}
+
 func server(port string) {
 	server := httprouter.New()
+	server.GET("/", redirectHomepage)
 	server.GET("/latest/*path", handleRequest)
 	server.GET("/best/*path", handleRequest)
 	server.GET("/downloads/*path", handleRequest)
