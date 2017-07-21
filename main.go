@@ -51,6 +51,7 @@ type requestOptions struct {
 	minDownloads float32
 	minPlays     float32
 	minRating    float32
+	sorting      string
 }
 
 type request struct {
@@ -69,6 +70,7 @@ func (r *request) getHash() string {
 		r.hash += strconv.Itoa(int(r.options.commercial))
 		r.hash += strconv.Itoa(int(r.options.derivative))
 		r.hash += r.options.license
+		r.hash += r.options.sorting
 		r.hash += strconv.Itoa(int(r.page))
 	}
 	return r.hash
@@ -263,8 +265,6 @@ func getRequestOptions(query url.Values, ps httprouter.Params) (opts *requestOpt
 	}
 	opts.license = license
 
-	log.WithField("license", opts.license).Info("blbl")
-
 	// ignore license terms if a license value is set
 	if opts.license != "" {
 		return
@@ -312,19 +312,23 @@ func getRequest(r *http.Request, ps httprouter.Params) (req *request) {
 	} else {
 		req.page = 1
 	}
+
+	if strings.HasPrefix(req.URL, "/latest") {
+		req.options.sorting = "posted"
+	} else if strings.HasPrefix(req.URL, "/best") {
+		req.options.sorting = "note"
+	} else if strings.HasPrefix(req.URL, "/downloads") {
+		req.options.sorting = "countweb"
+	} else if strings.HasPrefix(req.URL, "/plays") {
+		req.options.sorting = "countfla"
+	}
 	return
 }
 
 func scrapData(r *request) (musics []audio) {
-	var urls []string
-
-	if r.options.alike == 0 && r.options.attribution == 0 && r.options.commercial == 0 &&
-		r.options.derivative == 0 && r.options.license == "" {
-		urls = []string{""}
-	}
+	var licenseURL string
 
 	if r.options.license != "" {
-		var licenseURL string
 		switch r.options.license {
 		case "art-libre":
 			licenseURL = "ART-LIBRE"
@@ -353,28 +357,21 @@ func scrapData(r *request) (musics []audio) {
 			licenseURL = "CC-BYSA"
 			break
 		}
-
-		if licenseURL != "" {
-			urls = []string{"license=" + licenseURL}
-		}
 	}
 
-	for _, url := range urls {
-		u := baseURL + url
-		if url != "" {
-			// add an "&" if there already is query params
-			u += "&"
-		}
-		u += "page=" + strconv.Itoa(r.page)
-
-		log.WithField("url", u).Info("Scraping page...")
-		musics = scrapePage(u)
+	u := baseURL + "sort=" + r.options.sorting
+	if licenseURL != "" {
+		u += "&license=" + licenseURL
 	}
+	u += "&page=" + strconv.Itoa(r.page)
+
+	log.WithField("url", u).Info("Scraping page...")
+	musics = scrapePage(u)
 
 	return
 }
 
-func handleLatest(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func handleRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	req := getRequest(r, ps)
 
 	tracks, found := cache.Get(req.getHash())
@@ -397,8 +394,14 @@ func handleLatest(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 
 func server(port string) {
 	server := httprouter.New()
-	server.GET("/latest/license/:license", handleLatest)
-	server.GET("/latest", handleLatest)
+	server.GET("/latest/license/:license", handleRequest)
+	server.GET("/latest", handleRequest)
+	server.GET("/best/license/:license", handleRequest)
+	server.GET("/best", handleRequest)
+	server.GET("/downloads/license/:license", handleRequest)
+	server.GET("/downloads", handleRequest)
+	server.GET("/plays/license/:license", handleRequest)
+	server.GET("/plays", handleRequest)
 
 	log.WithFields(log.Fields{
 		"port": port,
