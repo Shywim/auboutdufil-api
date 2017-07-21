@@ -43,15 +43,10 @@ type audio struct {
 }
 
 type requestOptions struct {
-	alike        uint
-	attribution  uint
-	commercial   uint
-	derivative   uint
-	license      string
-	minDownloads float32
-	minPlays     float32
-	minRating    float32
-	sorting      string
+	genre   string
+	license string
+	mood    string
+	sorting string
 }
 
 type request struct {
@@ -65,10 +60,8 @@ type request struct {
 func (r *request) getHash() string {
 	if r.hash == "" {
 		r.hash += r.URL
-		r.hash += strconv.Itoa(int(r.options.alike))
-		r.hash += strconv.Itoa(int(r.options.attribution))
-		r.hash += strconv.Itoa(int(r.options.commercial))
-		r.hash += strconv.Itoa(int(r.options.derivative))
+		r.hash += r.options.genre
+		r.hash += r.options.mood
 		r.hash += r.options.license
 		r.hash += r.options.sorting
 		r.hash += strconv.Itoa(int(r.page))
@@ -246,65 +239,91 @@ func scrapePage(url string) (tracks []audio) {
 	return tracks
 }
 
-func getSwitchableOpt(opt string) uint {
-	if opt == "1" || opt == "true" {
-		return 1
-	} else if opt == "0" || opt == "false" {
-		return 2
-	} else {
-		return 0
+func handleRequestOptions(query url.Values, opts *requestOptions) {
+	if opts.genre == "" {
+		opts.genre = query.Get("genre")
 	}
-}
 
-func getRequestOptions(query url.Values, ps httprouter.Params) (opts *requestOptions) {
-	opts = &requestOptions{}
-
-	license := ps.ByName("license")
-	if license == "" {
-		license = query.Get("license")
+	if opts.license == "" {
+		opts.license = query.Get("license")
 	}
-	opts.license = license
 
-	// ignore license terms if a license value is set
 	if opts.license != "" {
-		return
-	}
-
-	alike := query.Get("alike")
-	if alike == "" {
-		alike = query.Get("share-alike")
-		if alike == "" {
-			alike = query.Get("sa")
+		switch opts.license {
+		case "art-libre":
+			opts.license = "ART-LIBRE"
+			break
+		case "cc0":
+			opts.license = "CC0"
+			break
+		case "cc-by":
+			opts.license = "CC-BY"
+			break
+		case "cc-bync":
+			opts.license = "CC-BYNC"
+			break
+		case "cc-byncnd":
+			opts.license = "CC-BYNCND"
+			break
+		case "cc-byncsa":
+			opts.license = "CC-BYNCSA"
+			break
+		case "cc-bynd":
+			opts.license = "CC-BYND"
+			break
+		case "cc-bysa":
+			opts.license = "CC-BYSA"
+			break
 		}
 	}
-	opts.alike = getSwitchableOpt(alike)
 
-	attribution := query.Get("attribution")
-	if attribution == "" {
-		attribution = query.Get("by")
+	if opts.mood == "" {
+		opts.mood = query.Get("mood")
 	}
-	opts.attribution = getSwitchableOpt(attribution)
 
-	commercial := query.Get("commercial")
-	if commercial == "" {
-		commercial = query.Get("nc")
+	if opts.mood != "" {
+		switch opts.mood {
+		case "rageuse":
+			opts.mood = "angry"
+			break
+		case "lumineuse":
+			opts.mood = "bright"
+			break
+		case "calme":
+			opts.mood = "calm"
+			break
+		case "lugubre":
+			opts.mood = "dark"
+			break
+		case "dramatique":
+			opts.mood = "dramatic"
+			break
+		case "euphorique":
+			opts.mood = "funky"
+			break
+		case "heureuse":
+			opts.mood = "happy"
+			break
+		case "inspirante":
+			opts.mood = "inspirational"
+			break
+		case "romantique":
+			opts.mood = "romantic"
+			break
+		case "triste":
+			opts.mood = "sad"
+			break
+		}
 	}
-	opts.attribution = getSwitchableOpt(commercial)
-
-	derivative := query.Get("derivative")
-	if derivative == "" {
-		derivative = query.Get("nd")
-	}
-	opts.attribution = getSwitchableOpt(derivative)
 
 	return
 }
 
 func getRequest(r *http.Request, ps httprouter.Params) (req *request) {
 	req = &request{}
+	req.options = &requestOptions{}
 	req.URL = r.URL.Path
 	queryParams := r.URL.Query()
-	req.options = getRequestOptions(queryParams, ps)
 
 	page := queryParams.Get("page")
 	if page != "" {
@@ -321,47 +340,58 @@ func getRequest(r *http.Request, ps httprouter.Params) (req *request) {
 		req.options.sorting = "countweb"
 	} else if strings.HasPrefix(req.URL, "/plays") {
 		req.options.sorting = "countfla"
+	} else {
+		// TODO: error
 	}
-	return
-}
 
-func scrapData(r *request) (musics []audio) {
-	var licenseURL string
+	path := ps.ByName("path")
+	if path == "" || path == "/" {
+		return
+	}
 
-	if r.options.license != "" {
-		switch r.options.license {
-		case "art-libre":
-			licenseURL = "ART-LIBRE"
+	paths := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	pathsLen := len(paths)
+	println(path)
+	println(pathsLen)
+	if pathsLen != 0 && pathsLen != 2 && pathsLen != 4 && pathsLen != 6 {
+		// TODO: error
+		return
+	}
+
+	for i := 0; i < pathsLen; i = i + 2 {
+		p := paths[i]
+
+		switch p {
+		case "license":
+			req.options.license = paths[i+1]
 			break
-		case "cc":
+		case "mood":
+			req.options.mood = paths[i+1]
 			break
-		case "cc0":
-			licenseURL = "CC0"
+		case "genre":
+			req.options.genre = paths[i+1]
 			break
-		case "cc-by":
-			licenseURL = "CC-BY"
-			break
-		case "cc-bync":
-			licenseURL = "CC-BYNC"
-			break
-		case "cc-byncnd":
-			licenseURL = "CC-BYNCND"
-			break
-		case "cc-byncsa":
-			licenseURL = "CC-BYNCSA"
-			break
-		case "cc-bynd":
-			licenseURL = "CC-BYND"
-			break
-		case "cc-bysa":
-			licenseURL = "CC-BYSA"
+		default:
+			// TODO: error
 			break
 		}
 	}
 
+	handleRequestOptions(queryParams, req.options)
+
+	return
+}
+
+func scrapData(r *request) (musics []audio) {
 	u := baseURL + "sort=" + r.options.sorting
-	if licenseURL != "" {
-		u += "&license=" + licenseURL
+	if r.options.license != "" {
+		u += "&license=" + r.options.license
+	}
+	if r.options.mood != "" {
+		u += "&mood=" + r.options.mood
+	}
+	if r.options.genre != "" {
+		u += "&tag=" + r.options.genre
 	}
 	u += "&page=" + strconv.Itoa(r.page)
 
@@ -394,14 +424,10 @@ func handleRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 
 func server(port string) {
 	server := httprouter.New()
-	server.GET("/latest/license/:license", handleRequest)
-	server.GET("/latest", handleRequest)
-	server.GET("/best/license/:license", handleRequest)
-	server.GET("/best", handleRequest)
-	server.GET("/downloads/license/:license", handleRequest)
-	server.GET("/downloads", handleRequest)
-	server.GET("/plays/license/:license", handleRequest)
-	server.GET("/plays", handleRequest)
+	server.GET("/latest/*path", handleRequest)
+	server.GET("/best/*path", handleRequest)
+	server.GET("/downloads/*path", handleRequest)
+	server.GET("/plays/*path", handleRequest)
 
 	log.WithFields(log.Fields{
 		"port": port,
