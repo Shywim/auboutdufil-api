@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	baseURL = "http://www.auboutdufil.com/index.php?"
+	baseURL    = "http://www.auboutdufil.com/index.php?"
+	timeLayout = "02/01/2006"
 )
 
 var (
@@ -183,6 +184,48 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 	additionalInfosSpans := scrape.FindAll(additionalInfosParent, scrape.ByTag(atom.Span))
 	if len(additionalInfosSpans) != 5 {
 		log.Warn("Incorrect html data while searching for additional infos, layout may have changed")
+		return track, errors.New("Malformed html")
+	}
+
+	date := scrape.Text(additionalInfosSpans[0])
+	if date != "" {
+		track.Date, err = time.Parse(timeLayout, date)
+	}
+	if date == "" || err != nil {
+		log.Warn("Incorrect html data while searching for date, layout may have changed")
+		return track, errors.New("Malformed html")
+	}
+
+	rating := scrape.Text(additionalInfosSpans[1])
+	if rating != "" {
+		rating = strings.Replace(strings.TrimSpace(strings.Split(rating, "/")[0]), ",", ".", -1)
+		ratingFloat, err := strconv.ParseFloat(rating, 32)
+		if err == nil {
+			track.Rating = float32(ratingFloat)
+		}
+	}
+	if rating == "" || err != nil {
+		log.Warn("Incorrect html data while searching for rating, layout may have changed")
+		return track, errors.New("Malformed html")
+	}
+
+	downloadsCount := scrape.Text(additionalInfosSpans[2])
+	if downloadsCount != "" {
+		downloadsCount = strings.Replace(downloadsCount, " ", "", -1)
+		track.Downloads, err = strconv.Atoi(downloadsCount)
+	}
+	if downloadsCount == "" || err != nil {
+		log.Warn("Incorrect html data while searching for downloads count, layout may have changed")
+		return track, errors.New("Malformed html")
+	}
+
+	playsCount := scrape.Text(additionalInfosSpans[3])
+	if playsCount != "" {
+		playsCount = strings.Replace(playsCount, " ", "", -1)
+		track.Plays, err = strconv.Atoi(playsCount)
+	}
+	if playsCount == "" || err != nil {
+		log.Warn("Incorrect html data while searching for plays count, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 
@@ -351,8 +394,6 @@ func getRequest(r *http.Request, ps httprouter.Params) (req *request) {
 
 	paths := strings.Split(strings.TrimPrefix(path, "/"), "/")
 	pathsLen := len(paths)
-	println(path)
-	println(pathsLen)
 	if pathsLen != 0 && pathsLen != 2 && pathsLen != 4 && pathsLen != 6 {
 		// TODO: error
 		return
