@@ -70,12 +70,10 @@ func (r *request) getHash() string {
 	return r.hash
 }
 
-func parseInfos(parentNode *html.Node, track audio) (audio, error) {
-
+func getInfoDivs(parentNode *html.Node) ([]*html.Node, error) {
 	infosParentDiv := scrape.FindAllNested(parentNode, scrape.ByClass("pure-u-2-3"))
 	if len(infosParentDiv) == 0 {
-		log.Warn("Incorrect html data, layout may have changed")
-		return track, errors.New("Malformed html")
+		return nil, errors.New("Malformed html")
 	}
 
 	notPure23Matcher := func(n *html.Node) bool {
@@ -84,17 +82,21 @@ func parseInfos(parentNode *html.Node, track audio) (audio, error) {
 
 	divs := scrape.FindAll(infosParentDiv[0], notPure23Matcher)
 	if len(divs) != 10 {
-		log.WithFields(log.Fields{
-			"divsNumber": len(divs),
-			"expected":   "10",
-		}).Warn("Incorrect html data, layout may have changed")
-		return track, errors.New("Malformed html")
+		return nil, errors.New("Malformed html")
+	}
+
+	return divs, nil
+}
+
+func parseInfos(parentNode *html.Node, track audio) (audio, error) {
+	divs, err := getInfoDivs(parentNode)
+	if err != nil {
+		return track, err
 	}
 
 	// Parse title infos
 	titleTag, ok := scrape.Find(divs[3], scrape.ByTag(atom.B))
 	if !ok {
-		log.Warn("Incorrect html data while searching for title, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 	track.Title = scrape.Text(titleTag)
@@ -102,12 +104,10 @@ func parseInfos(parentNode *html.Node, track audio) (audio, error) {
 	// Parse artist name and url
 	artistTagParent, ok := scrape.Find(divs[4], scrape.ByTag(atom.Strong))
 	if !ok {
-		log.Warn("Incorrect html data while searching for artist, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 	artistTag, ok := scrape.Find(artistTagParent, scrape.ByTag(atom.A))
 	if !ok {
-		log.Warn("Incorrect html data while searching for artist, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 	track.Artist = scrape.Text(artistTag)
@@ -132,7 +132,6 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 	// look for cover image
 	coverParentDiv := scrape.FindAllNested(node, scrape.ByClass("pure-u-1-3"))
 	if len(coverParentDiv) == 0 {
-		log.Warn("Incorrect html data while searching for cover url, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 
@@ -142,16 +141,11 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 
 	divs := scrape.FindAll(coverParentDiv[0], notPure13Matcher)
 	if len(divs) != 6 {
-		log.WithFields(log.Fields{
-			"divsNumber": len(divs),
-			"expected":   "6",
-		}).Warn("Incorrect html data while searching for cover url, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 
 	coverTag := scrape.FindAllNested(divs[5], scrape.ByTag(atom.Img))
 	if len(coverTag) != 1 {
-		log.Warn("Incorrect html data while searching for cover url, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 	track.CoverArtURL = scrape.Attr(coverTag[0], "src")
@@ -159,17 +153,14 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 	// download url
 	mp3PlayerDiv, ok := scrape.Find(node.Parent, scrape.ByClass("mp3player"))
 	if !ok {
-		log.Warn("Incorrect html data while searching for download url, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 	downloadURLParent := scrape.FindAllNested(mp3PlayerDiv, scrape.ByClass("sm2-playlist-bd"))
 	if len(downloadURLParent) != 1 {
-		log.Warn("Incorrect html data while searching for download url, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 	downloadURLTag := scrape.FindAllNested(downloadURLParent[0], scrape.ByTag(atom.A))
 	if len(downloadURLTag) != 1 {
-		log.Warn("Incorrect html data while searching for download url, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 	track.DownloadURL = scrape.Attr(downloadURLTag[0], "href")
@@ -177,13 +168,11 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 	// additional infos
 	additionalInfosParent, ok := scrape.Find(node.Parent, scrape.ByClass("legenddata"))
 	if !ok {
-		log.Warn("Incorrect html data, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 
 	additionalInfosSpans := scrape.FindAll(additionalInfosParent, scrape.ByTag(atom.Span))
 	if len(additionalInfosSpans) != 5 {
-		log.Warn("Incorrect html data while searching for additional infos, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 
@@ -192,7 +181,6 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 		track.Date, err = time.Parse(timeLayout, date)
 	}
 	if date == "" || err != nil {
-		log.Warn("Incorrect html data while searching for date, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 
@@ -205,7 +193,6 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 		}
 	}
 	if rating == "" || err != nil {
-		log.Warn("Incorrect html data while searching for rating, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 
@@ -215,7 +202,6 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 		track.Downloads, err = strconv.Atoi(downloadsCount)
 	}
 	if downloadsCount == "" || err != nil {
-		log.Warn("Incorrect html data while searching for downloads count, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 
@@ -225,13 +211,11 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 		track.Plays, err = strconv.Atoi(playsCount)
 	}
 	if playsCount == "" || err != nil {
-		log.Warn("Incorrect html data while searching for plays count, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 
 	licenseTag, ok := scrape.Find(additionalInfosSpans[4], scrape.ByTag(atom.A))
 	if !ok {
-		log.Warn("Incorrect html data while searching for license infos, layout may have changed")
 		return track, errors.New("Malformed html")
 	}
 	track.License = strings.Split(scrape.Attr(licenseTag, "href"), "license=")[1]
@@ -239,15 +223,11 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 	return track, nil
 }
 
-func scrapePage(url string) (tracks []audio) {
+func getPage(url string) (*html.Node, error) {
 	resp, err := http.Get(url)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"url": url,
-			"err": err,
-		}).Error("Failed to get page")
-		return
+		return nil, err
 	}
 
 	body := resp.Body
@@ -255,13 +235,13 @@ func scrapePage(url string) (tracks []audio) {
 
 	root, err := html.Parse(resp.Body)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err,
-			"url": url,
-		}).Error("Unable to parse this web page")
-		return
+		return nil, err
 	}
 
+	return root, nil
+}
+
+func getAudioDivs(root *html.Node) []*html.Node {
 	matcher := func(n *html.Node) bool {
 		if n.DataAtom == atom.Div && n.Parent != nil {
 			return strings.Contains(scrape.Attr(n, "class"), "audio-wrapper")
@@ -269,7 +249,17 @@ func scrapePage(url string) (tracks []audio) {
 		return false
 	}
 
-	audioWrappers := scrape.FindAllNested(root, matcher)
+	return scrape.FindAllNested(root, matcher)
+}
+
+func scrapePage(url string) (tracks []audio) {
+	root, err := getPage(url)
+	if err != nil {
+		return
+	}
+
+	audioWrappers := getAudioDivs(root)
+
 	for _, wrapper := range audioWrappers {
 		track, err := parseAudioData(wrapper)
 		if err != nil {
@@ -467,7 +457,7 @@ func redirectHomepage(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 	http.Redirect(w, r, "https://github.com/Shywim/auboutdufil-api", http.StatusTemporaryRedirect)
 }
 
-func server(port string) {
+func serve(port string) {
 	server := httprouter.New()
 	server.GET("/", redirectHomepage)
 	server.GET("/latest/*path", handleRequest)
@@ -479,7 +469,7 @@ func server(port string) {
 		"port": port,
 	}).Info("Starting HTTP Server")
 
-	http.ListenAndServe(":"+port, server)
+	go http.ListenAndServe(":"+port, server)
 
 }
 
@@ -489,5 +479,5 @@ func main() {
 	)
 	flag.Parse()
 
-	server(*port)
+	serve(*port)
 }
