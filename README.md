@@ -1,5 +1,8 @@
 
 [![Free music](http://img.auboutdufil.com/logo32.png)][Au Bout du Fil]
+[![Build Status](https://travis-ci.org/Shywim/auboutdufil-api.svg?branch=master)](https://travis-ci.org/Shywim/auboutdufil-api)
+[![codecov](https://codecov.io/gh/Shywim/auboutdufil-api/branch/master/graph/badge.svg)](https://codecov.io/gh/Shywim/auboutdufil-api)
+
 
 Au Bout du Fil unofficial API
 =============================
