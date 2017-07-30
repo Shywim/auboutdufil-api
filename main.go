@@ -281,78 +281,14 @@ func handleRequestOptions(query url.Values, opts *requestOptions) {
 		opts.license = query.Get("license")
 	}
 
-	if opts.license != "" {
-		switch opts.license {
-		case "art-libre":
-			opts.license = "ART-LIBRE"
-			break
-		case "cc0":
-			opts.license = "CC0"
-			break
-		case "cc-by":
-			opts.license = "CC-BY"
-			break
-		case "cc-bync":
-			opts.license = "CC-BYNC"
-			break
-		case "cc-byncnd":
-			opts.license = "CC-BYNCND"
-			break
-		case "cc-byncsa":
-			opts.license = "CC-BYNCSA"
-			break
-		case "cc-bynd":
-			opts.license = "CC-BYND"
-			break
-		case "cc-bysa":
-			opts.license = "CC-BYSA"
-			break
-		}
-	}
-
 	if opts.mood == "" {
 		opts.mood = query.Get("mood")
-	}
-
-	if opts.mood != "" {
-		switch opts.mood {
-		case "rageuse":
-			opts.mood = "angry"
-			break
-		case "lumineuse":
-			opts.mood = "bright"
-			break
-		case "calme":
-			opts.mood = "calm"
-			break
-		case "lugubre":
-			opts.mood = "dark"
-			break
-		case "dramatique":
-			opts.mood = "dramatic"
-			break
-		case "euphorique":
-			opts.mood = "funky"
-			break
-		case "heureuse":
-			opts.mood = "happy"
-			break
-		case "inspirante":
-			opts.mood = "inspirational"
-			break
-		case "romantique":
-			opts.mood = "romantic"
-			break
-		case "triste":
-			opts.mood = "sad"
-			break
-		}
 	}
 
 	return
 }
 
-func getRequest(r *http.Request, ps httprouter.Params) (req *request) {
+func getRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params) (req *request) {
 	req = &request{}
 	req.options = &requestOptions{}
 	req.URL = r.URL.Path
@@ -373,8 +309,6 @@ func getRequest(r *http.Request, ps httprouter.Params) (req *request) {
 		req.options.sorting = "countweb"
 	} else if strings.HasPrefix(req.URL, "/plays") {
 		req.options.sorting = "countfla"
-	} else {
-		// TODO: error
 	}
 
 	path := ps.ByName("path")
@@ -385,7 +319,7 @@ func getRequest(r *http.Request, ps httprouter.Params) (req *request) {
 	paths := strings.Split(strings.TrimPrefix(path, "/"), "/")
 	pathsLen := len(paths)
 	if pathsLen != 0 && pathsLen != 2 && pathsLen != 4 && pathsLen != 6 {
-		// TODO: error
+		http.Error(w, "Unsupported operation", http.StatusBadRequest)
 		return
 	}
 
@@ -403,7 +337,7 @@ func getRequest(r *http.Request, ps httprouter.Params) (req *request) {
 			req.options.genre = paths[i+1]
 			break
 		default:
-			// TODO: error
+			http.Error(w, "Unsupported operation", http.StatusBadRequest)
 			break
 		}
 	}
@@ -433,7 +367,7 @@ func scrapData(r *request) (musics []audio) {
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	req := getRequest(r, ps)
+	req := getRequest(w, r, ps)
 
 	tracks, found := cache.Get(req.getHash())
 	if !found {

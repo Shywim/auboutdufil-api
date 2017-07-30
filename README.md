@@ -58,7 +58,7 @@ For each of theses endpoints you can add the following paths (in any order):
 
     /license/:license
 
-Filter by license. These license values will be converted to uppercase if you pass them as lowercase: 
+Filter by license. Those are the known licenses at this time (more may have been added to the site, you can pass them to this api):
 
  - Licence art libre (`ART-LIBRE`)
  - Creative Commons Attribution (`CC-BY`)
@@ -69,30 +69,28 @@ Filter by license. These license values will be converted to uppercase if you pa
  - Creative Commons Attribution-Share Alike (`CC-BYSA`)
  - Creative Commons Public Domain (`CC0`)
 
-⚠️ For forward compatibility, no error will be sent if an unsupported license is passed and the scrapper will try to fetch music for the value it received. Results in this case may not be accurate.
-
     /mood/:mood
 
-Filter by mood. You can passe the french mood (as displayed on the [Au Bout du Fil] sidebar) and the corresponding variable will be used:
+Filter by mood. Those are the known moods at this time (more may have been added to the site, you can apss them to this api):
 
- - *rageuse*: `angry`
- - *lumineuse*: `bright`
- - *calme*: `calm`
- - *lugubre*: `dark`
- - *dramatique*: `dramatic`
- - *euphorique*: `funky`
- - *heureuse*: `happy`
- - *inspirante*: `inspirational`
- - *romatique*: `romantic`
- - *triste*: `sad`
-
-⚠️ For forward compatibility, no error will be sent if an unknown mood is passed and the scrapper will try to fetch music for the value it received. Results in this case may not be accurate.
+ - `angry`
+ - `bright`
+ - `calm`
+ - `dark`
+ - `dramatic`
+ - `funky`
+ - `happy`
+ - `inspirational`
+ - `romantic`
+ - `sad`
 
     /genre/:genre
 
-Filter by genre. Values passed will be used directly by the scrapper. You can find the list in the [Au Bout du Fil] sidebar.
+Filter by genre. Values passed will be used directly by the scrapper.
 
 Genre, mood and license can also be passed as query params to the endpoint (e.g. `/latest?license=cc-by`). If you pass one of these both as a query param and as a url path, the url path will have priority over the query param.
+
+For each of theses you can pass a value not listed here and the scrapper will try to get the music if there's any corresponding one.
 
 
  [Au Bout du Fil]: http://www.auboutdufil.com
