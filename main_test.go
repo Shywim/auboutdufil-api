@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	"golang.org/x/net/html"
 )
 
 func TestRequestHash(t *testing.T) {
@@ -81,6 +83,11 @@ func TestGetInfoDivs(t *testing.T) {
 }
 
 func checkHasMusic(t *testing.T, resp *http.Response) {
+	if resp.StatusCode != http.StatusOK {
+		t.Error("Expected status", http.StatusOK, "got", resp.StatusCode)
+		return
+	}
+
 	jsonStr, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		t.Error("Expected no error, got", err)
@@ -147,6 +154,42 @@ func TestServePlays(t *testing.T) {
 	checkHasMusic(t, resp)
 }
 
+func TestHomeRedirect(t *testing.T) {
+	serve("1234")
+
+	client := &http.Client{
+		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	resp, err := client.Get("http://localhost:1234")
+	if err != nil {
+		t.Error("Expected no error, got", err)
+		return
+	}
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Error("Unexpected status code, expected", http.StatusTemporaryRedirect, "got", resp.StatusCode)
+	}
+}
+
+func TestMain(t *testing.T) {
+	main()
+
+	resp, err := http.Get("http://localhost:14000/latest")
+	if err != nil {
+		t.Error("Expected no error, got", err)
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Error("Unexpected status code, expected", http.StatusOK, "got", resp.StatusCode)
+	}
+}
+
+/* Test proper errors */
+
 func TestPathError(t *testing.T) {
 	serve("1234")
 
@@ -189,22 +232,53 @@ func TestUnknownParam(t *testing.T) {
 	}
 }
 
-func TestHomeRedirect(t *testing.T) {
-	serve("1234")
+func TestGetTitleFail(t *testing.T) {
+	s := getTitle(&html.Node{})
 
-	client := &http.Client{
-		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
+	if s != "" {
+		t.Error("Expected empty result, got", s)
 	}
+}
 
-	resp, err := client.Get("http://localhost:1234")
-	if err != nil {
-		t.Error("Expected no error, got", err)
-		return
+func TestGetArtistFail(t *testing.T) {
+	a, u := getArtist(&html.Node{})
+
+	if a != "" {
+		t.Error("Expected empty result, got", a)
 	}
+	if u != "" {
+		t.Error("Expected empty result, got", u)
+	}
+}
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Error("Unexpected status code, expected", http.StatusTemporaryRedirect, "got", resp.StatusCode)
+func TestGetGenresFail(t *testing.T) {
+	s := getGenres(&html.Node{})
+
+	if len(s) > 0 {
+		t.Error("Expected empty result, got", len(s))
+	}
+}
+
+func TestGetInfoDivsFail(t *testing.T) {
+	_, err := getInfoDivs(&html.Node{})
+
+	if err == nil {
+		t.Error("Expected to have error, got no error")
+	}
+}
+
+func TestGetParseInfos(t *testing.T) {
+	_, err := parseInfos(&html.Node{}, audio{})
+
+	if err == nil {
+		t.Error("Expected to have error, got no error")
+	}
+}
+
+func TestScrapePageFail(t *testing.T) {
+	_, err := scrapePage("http://garbage.garbage")
+
+	if err == nil {
+		t.Error("Expected to have error, got no error")
 	}
 }

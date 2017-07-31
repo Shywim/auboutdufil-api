@@ -81,11 +81,37 @@ func getInfoDivs(parentNode *html.Node) ([]*html.Node, error) {
 	}
 
 	divs := scrape.FindAll(infosParentDiv[0], notPure23Matcher)
-	if len(divs) != 10 {
-		return nil, errors.New("Malformed html")
-	}
 
 	return divs, nil
+}
+
+func getTitle(infoDiv *html.Node) string {
+	titleTag, ok := scrape.Find(infoDiv, scrape.ByTag(atom.B))
+	if !ok {
+		log.Error("Malformed html when looking for title")
+		return ""
+	}
+
+	return scrape.Text(titleTag)
+}
+
+func getArtist(infoDiv *html.Node) (string, string) {
+	artistTag, ok := scrape.Find(infoDiv, scrape.ByTag(atom.A))
+	if !ok {
+		log.Error("Malformed html when looking for title")
+		return "", ""
+	}
+
+	return scrape.Text(artistTag), scrape.Attr(artistTag, "href")
+}
+
+func getGenres(infoDiv *html.Node) (genres []string) {
+	genreTags := scrape.FindAll(infoDiv, scrape.ByTag(atom.Span))
+	for _, genreTag := range genreTags {
+		genres = append(genres, scrape.Text(genreTag))
+	}
+
+	return
 }
 
 func parseInfos(parentNode *html.Node, track audio) (audio, error) {
@@ -94,30 +120,9 @@ func parseInfos(parentNode *html.Node, track audio) (audio, error) {
 		return track, err
 	}
 
-	// Parse title infos
-	titleTag, ok := scrape.Find(divs[3], scrape.ByTag(atom.B))
-	if !ok {
-		return track, errors.New("Malformed html")
-	}
-	track.Title = scrape.Text(titleTag)
-
-	// Parse artist name and url
-	artistTagParent, ok := scrape.Find(divs[4], scrape.ByTag(atom.Strong))
-	if !ok {
-		return track, errors.New("Malformed html")
-	}
-	artistTag, ok := scrape.Find(artistTagParent, scrape.ByTag(atom.A))
-	if !ok {
-		return track, errors.New("Malformed html")
-	}
-	track.Artist = scrape.Text(artistTag)
-	track.TrackURL = scrape.Attr(artistTag, "href")
-
-	// Parse genres
-	genreTags := scrape.FindAll(divs[6], scrape.ByTag(atom.Span))
-	for _, genreTag := range genreTags {
-		track.Genres = append(track.Genres, scrape.Text(genreTag))
-	}
+	track.Title = getTitle(divs[3])
+	track.Artist, track.TrackURL = getArtist(divs[4])
+	track.Genres = getGenres(divs[6])
 
 	return track, nil
 }
@@ -140,30 +145,26 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 	}
 
 	divs := scrape.FindAll(coverParentDiv[0], notPure13Matcher)
-	if len(divs) != 6 {
+	if divs[5] == nil {
 		return track, errors.New("Malformed html")
 	}
 
-	coverTag := scrape.FindAllNested(divs[5], scrape.ByTag(atom.Img))
-	if len(coverTag) != 1 {
-		return track, errors.New("Malformed html")
-	}
-	track.CoverArtURL = scrape.Attr(coverTag[0], "src")
-
-	// download url
-	mp3PlayerDiv, ok := scrape.Find(node.Parent, scrape.ByClass("mp3player"))
+	coverTag, ok := scrape.Find(divs[5], scrape.ByTag(atom.Img))
 	if !ok {
 		return track, errors.New("Malformed html")
 	}
-	downloadURLParent := scrape.FindAllNested(mp3PlayerDiv, scrape.ByClass("sm2-playlist-bd"))
-	if len(downloadURLParent) != 1 {
+	track.CoverArtURL = scrape.Attr(coverTag, "src")
+
+	// download url
+	downloadURLParent, ok := scrape.Find(node.Parent, scrape.ByClass("sm2-playlist-bd"))
+	if !ok {
 		return track, errors.New("Malformed html")
 	}
-	downloadURLTag := scrape.FindAllNested(downloadURLParent[0], scrape.ByTag(atom.A))
-	if len(downloadURLTag) != 1 {
+	downloadURLTag, ok := scrape.Find(downloadURLParent, scrape.ByTag(atom.A))
+	if !ok {
 		return track, errors.New("Malformed html")
 	}
-	track.DownloadURL = scrape.Attr(downloadURLTag[0], "href")
+	track.DownloadURL = scrape.Attr(downloadURLTag, "href")
 
 	// additional infos
 	additionalInfosParent, ok := scrape.Find(node.Parent, scrape.ByClass("legenddata"))
@@ -225,7 +226,6 @@ func parseAudioData(node *html.Node) (track audio, err error) {
 
 func getPage(url string) (*html.Node, error) {
 	resp, err := http.Get(url)
-
 	if err != nil {
 		return nil, err
 	}
@@ -252,24 +252,22 @@ func getAudioDivs(root *html.Node) []*html.Node {
 	return scrape.FindAllNested(root, matcher)
 }
 
-func scrapePage(url string) (tracks []audio) {
+func scrapePage(url string) (tracks []audio, err error) {
 	root, err := getPage(url)
 	if err != nil {
-		return
+		return tracks, err
 	}
 
 	audioWrappers := getAudioDivs(root)
 
 	for _, wrapper := range audioWrappers {
 		track, err := parseAudioData(wrapper)
-		if err != nil {
-			continue
+		if err == nil {
+			tracks = append(tracks, track)
 		}
-
-		tracks = append(tracks, track)
 	}
 
-	return tracks
+	return tracks, nil
 }
 
 func handleRequestOptions(query url.Values, opts *requestOptions) {
@@ -347,7 +345,8 @@ func getRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params) (r
 	return
 }
 
-func scrapData(r *request) (musics []audio) {
+func scrapData(r *request) (musics []audio, err error) {
+	// build url according to options
 	u := baseURL + "sort=" + r.options.sorting
 	if r.options.license != "" {
 		u += "&license=" + r.options.license
@@ -360,8 +359,7 @@ func scrapData(r *request) (musics []audio) {
 	}
 	u += "&page=" + strconv.Itoa(r.page)
 
-	log.WithField("url", u).Info("Scraping page...")
-	musics = scrapePage(u)
+	musics, err = scrapePage(u)
 
 	return
 }
@@ -371,17 +369,18 @@ func handleRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 
 	tracks, found := cache.Get(req.getHash())
 	if !found {
-		log.Info("Cache expired, scraping data...")
-		scrapeTracks := scrapData(req)
+		// cache expired, scrapping data
+		scrapeTracks, err := scrapData(req)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		// store new data in cache
 		cache.Set(req.getHash(), scrapeTracks, 0)
 		tracks = scrapeTracks
 	}
 
-	body, err := json.Marshal(tracks)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	body, _ := json.Marshal(tracks)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(body)
