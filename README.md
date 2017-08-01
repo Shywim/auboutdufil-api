@@ -1,8 +1,8 @@
-
 [![Free music](http://img.auboutdufil.com/logo32.png)][Au Bout du Fil]
-[![Build Status](https://travis-ci.org/Shywim/auboutdufil-api.svg?branch=master)](https://travis-ci.org/Shywim/auboutdufil-api)
-[![codecov](https://codecov.io/gh/Shywim/auboutdufil-api/branch/master/graph/badge.svg)](https://codecov.io/gh/Shywim/auboutdufil-api)
 
+[![Build Status](https://travis-ci.org/Shywim/auboutdufil-api.svg?branch=master)](https://travis-ci.org/Shywim/auboutdufil-api)
+[![Go Report Card](https://goreportcard.com/badge/github.com/shywim/auboutdufil-api)](https://goreportcard.com/report/github.com/shywim/auboutdufil-api)
+[![codecov](https://codecov.io/gh/Shywim/auboutdufil-api/branch/master/graph/badge.svg)](https://codecov.io/gh/Shywim/auboutdufil-api)
 
 Au Bout du Fil unofficial API
 =============================
@@ -56,6 +56,8 @@ Provides the most played musics.
 
 For each of theses endpoints you can add the following paths (in any order):
 
+**License:**
+
     /license/:license
 
 Filter by license. Those are the known licenses at this time (more may have been added to the site, you can pass them to this api):
@@ -69,9 +71,11 @@ Filter by license. Those are the known licenses at this time (more may have been
  - Creative Commons Attribution-Share Alike (`CC-BYSA`)
  - Creative Commons Public Domain (`CC0`)
 
+**Mood:**
+
     /mood/:mood
 
-Filter by mood. Those are the known moods at this time (more may have been added to the site, you can apss them to this api):
+Filter by mood. Those are the known moods at this time (more may have been added to the site, you can pass them to this api):
 
  - `angry`
  - `bright`
@@ -83,6 +87,8 @@ Filter by mood. Those are the known moods at this time (more may have been added
  - `inspirational`
  - `romantic`
  - `sad`
+
+**Genre:**
 
     /genre/:genre
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"net/http"
 	"strconv"
@@ -14,9 +13,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/julienschmidt/httprouter"
 	gocache "github.com/patrickmn/go-cache"
-	"github.com/yhat/scrape"
-	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
 )
 
 const (
@@ -68,206 +64,6 @@ func (r *request) getHash() string {
 		r.hash += strconv.Itoa(int(r.page))
 	}
 	return r.hash
-}
-
-func getInfoDivs(parentNode *html.Node) ([]*html.Node, error) {
-	infosParentDiv := scrape.FindAllNested(parentNode, scrape.ByClass("pure-u-2-3"))
-	if len(infosParentDiv) == 0 {
-		return nil, errors.New("Malformed html")
-	}
-
-	notPure23Matcher := func(n *html.Node) bool {
-		return n.DataAtom == atom.Div && scrape.Attr(n, "class") != "pure-u-2-3"
-	}
-
-	divs := scrape.FindAll(infosParentDiv[0], notPure23Matcher)
-
-	return divs, nil
-}
-
-func getTitle(infoDiv *html.Node) string {
-	titleTag, ok := scrape.Find(infoDiv, scrape.ByTag(atom.B))
-	if !ok {
-		log.Error("Malformed html when looking for title")
-		return ""
-	}
-
-	return scrape.Text(titleTag)
-}
-
-func getArtist(infoDiv *html.Node) (string, string) {
-	artistTag, ok := scrape.Find(infoDiv, scrape.ByTag(atom.A))
-	if !ok {
-		log.Error("Malformed html when looking for title")
-		return "", ""
-	}
-
-	return scrape.Text(artistTag), scrape.Attr(artistTag, "href")
-}
-
-func getGenres(infoDiv *html.Node) (genres []string) {
-	genreTags := scrape.FindAll(infoDiv, scrape.ByTag(atom.Span))
-	for _, genreTag := range genreTags {
-		genres = append(genres, scrape.Text(genreTag))
-	}
-
-	return
-}
-
-func parseInfos(parentNode *html.Node, track audio) (audio, error) {
-	divs, err := getInfoDivs(parentNode)
-	if err != nil {
-		return track, err
-	}
-
-	track.Title = getTitle(divs[3])
-	track.Artist, track.TrackURL = getArtist(divs[4])
-	track.Genres = getGenres(divs[6])
-
-	return track, nil
-}
-
-func parseAudioData(node *html.Node) (track audio, err error) {
-
-	track, err = parseInfos(node, track)
-	if err != nil {
-		return track, err
-	}
-
-	// look for cover image
-	coverParentDiv := scrape.FindAllNested(node, scrape.ByClass("pure-u-1-3"))
-	if len(coverParentDiv) == 0 {
-		return track, errors.New("Malformed html")
-	}
-
-	notPure13Matcher := func(n *html.Node) bool {
-		return n.DataAtom == atom.Div && scrape.Attr(n, "class") != "pure-u-1-3"
-	}
-
-	divs := scrape.FindAll(coverParentDiv[0], notPure13Matcher)
-	if divs[5] == nil {
-		return track, errors.New("Malformed html")
-	}
-
-	coverTag, ok := scrape.Find(divs[5], scrape.ByTag(atom.Img))
-	if !ok {
-		return track, errors.New("Malformed html")
-	}
-	track.CoverArtURL = scrape.Attr(coverTag, "src")
-
-	// download url
-	downloadURLParent, ok := scrape.Find(node.Parent, scrape.ByClass("sm2-playlist-bd"))
-	if !ok {
-		return track, errors.New("Malformed html")
-	}
-	downloadURLTag, ok := scrape.Find(downloadURLParent, scrape.ByTag(atom.A))
-	if !ok {
-		return track, errors.New("Malformed html")
-	}
-	track.DownloadURL = scrape.Attr(downloadURLTag, "href")
-
-	// additional infos
-	additionalInfosParent, ok := scrape.Find(node.Parent, scrape.ByClass("legenddata"))
-	if !ok {
-		return track, errors.New("Malformed html")
-	}
-
-	additionalInfosSpans := scrape.FindAll(additionalInfosParent, scrape.ByTag(atom.Span))
-	if len(additionalInfosSpans) != 5 {
-		return track, errors.New("Malformed html")
-	}
-
-	date := scrape.Text(additionalInfosSpans[0])
-	if date != "" {
-		track.Date, err = time.Parse(timeLayout, date)
-	}
-	if date == "" || err != nil {
-		return track, errors.New("Malformed html")
-	}
-
-	rating := scrape.Text(additionalInfosSpans[1])
-	if rating != "" {
-		rating = strings.Replace(strings.TrimSpace(strings.Split(rating, "/")[0]), ",", ".", -1)
-		ratingFloat, err := strconv.ParseFloat(rating, 32)
-		if err == nil {
-			track.Rating = float32(ratingFloat)
-		}
-	}
-	if rating == "" || err != nil {
-		return track, errors.New("Malformed html")
-	}
-
-	downloadsCount := scrape.Text(additionalInfosSpans[2])
-	if downloadsCount != "" {
-		downloadsCount = strings.Replace(downloadsCount, " ", "", -1)
-		track.Downloads, err = strconv.Atoi(downloadsCount)
-	}
-	if downloadsCount == "" || err != nil {
-		return track, errors.New("Malformed html")
-	}
-
-	playsCount := scrape.Text(additionalInfosSpans[3])
-	if playsCount != "" {
-		playsCount = strings.Replace(playsCount, " ", "", -1)
-		track.Plays, err = strconv.Atoi(playsCount)
-	}
-	if playsCount == "" || err != nil {
-		return track, errors.New("Malformed html")
-	}
-
-	licenseTag, ok := scrape.Find(additionalInfosSpans[4], scrape.ByTag(atom.A))
-	if !ok {
-		return track, errors.New("Malformed html")
-	}
-	track.License = strings.Split(scrape.Attr(licenseTag, "href"), "license=")[1]
-
-	return track, nil
-}
-
-func getPage(url string) (*html.Node, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-
-	body := resp.Body
-	defer body.Close()
-
-	root, err := html.Parse(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return root, nil
-}
-
-func getAudioDivs(root *html.Node) []*html.Node {
-	matcher := func(n *html.Node) bool {
-		if n.DataAtom == atom.Div && n.Parent != nil {
-			return strings.Contains(scrape.Attr(n, "class"), "audio-wrapper")
-		}
-		return false
-	}
-
-	return scrape.FindAllNested(root, matcher)
-}
-
-func scrapePage(url string) (tracks []audio, err error) {
-	root, err := getPage(url)
-	if err != nil {
-		return tracks, err
-	}
-
-	audioWrappers := getAudioDivs(root)
-
-	for _, wrapper := range audioWrappers {
-		track, err := parseAudioData(wrapper)
-		if err == nil {
-			tracks = append(tracks, track)
-		}
-	}
-
-	return tracks, nil
 }
 
 func handleRequestOptions(query url.Values, opts *requestOptions) {
@@ -345,7 +141,7 @@ func getRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params) (r
 	return
 }
 
-func scrapData(r *request) (musics []audio, err error) {
+func scrapData(r *request) (musics []*audio, err error) {
 	// build url according to options
 	u := baseURL + "sort=" + r.options.sorting
 	if r.options.license != "" {
@@ -386,6 +182,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 	w.Write(body)
 }
 
+// redirect to github when hitting '/'
 func redirectHomepage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	http.Redirect(w, r, "https://github.com/Shywim/auboutdufil-api", http.StatusTemporaryRedirect)
 }
@@ -393,6 +190,8 @@ func redirectHomepage(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 func serve(port string) {
 	server := httprouter.New()
 	server.GET("/", redirectHomepage)
+	// we define explicitely the 4 routes so with have 'path' in params and let the router
+	// handles 404s
 	server.GET("/latest/*path", handleRequest)
 	server.GET("/best/*path", handleRequest)
 	server.GET("/downloads/*path", handleRequest)
@@ -403,7 +202,6 @@ func serve(port string) {
 	}).Info("Starting HTTP Server")
 
 	go http.ListenAndServe(":"+port, server)
-
 }
 
 func main() {

@@ -5,8 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
-
-	"golang.org/x/net/html"
 )
 
 func TestRequestHash(t *testing.T) {
@@ -36,49 +34,6 @@ func TestRequestHash(t *testing.T) {
 
 	if hashA != hashB {
 		t.Error("Expected hashes to be equals")
-	}
-}
-
-func TestGetPage(t *testing.T) {
-	_, err := getPage(baseURL + "sort=latest")
-
-	if err != nil {
-		t.Error("Expected no error, got ", err)
-	}
-}
-
-func TestGetAudioDivs(t *testing.T) {
-	root, err := getPage(baseURL + "sort=latest")
-
-	if err != nil {
-		t.Error("Dependency not met")
-		return
-	}
-
-	audioDivs := getAudioDivs(root)
-
-	if len(audioDivs) != 6 {
-		t.Error("Expected to find 6 audio divs, got", len(audioDivs))
-	}
-}
-
-func TestGetInfoDivs(t *testing.T) {
-	root, err := getPage(baseURL + "sort=latest")
-
-	if err != nil {
-		t.Error("Dependency not met")
-		return
-	}
-
-	audioDivs := getAudioDivs(root)
-
-	if len(audioDivs) == 0 {
-		t.Error("Dependency not met")
-	}
-
-	_, err = getInfoDivs(audioDivs[0])
-	if err != nil {
-		t.Error(err)
 	}
 }
 
@@ -229,56 +184,5 @@ func TestUnknownParam(t *testing.T) {
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Error("Unexpected status code, expected", http.StatusBadRequest, "got", resp.StatusCode)
-	}
-}
-
-func TestGetTitleFail(t *testing.T) {
-	s := getTitle(&html.Node{})
-
-	if s != "" {
-		t.Error("Expected empty result, got", s)
-	}
-}
-
-func TestGetArtistFail(t *testing.T) {
-	a, u := getArtist(&html.Node{})
-
-	if a != "" {
-		t.Error("Expected empty result, got", a)
-	}
-	if u != "" {
-		t.Error("Expected empty result, got", u)
-	}
-}
-
-func TestGetGenresFail(t *testing.T) {
-	s := getGenres(&html.Node{})
-
-	if len(s) > 0 {
-		t.Error("Expected empty result, got", len(s))
-	}
-}
-
-func TestGetInfoDivsFail(t *testing.T) {
-	_, err := getInfoDivs(&html.Node{})
-
-	if err == nil {
-		t.Error("Expected to have error, got no error")
-	}
-}
-
-func TestGetParseInfos(t *testing.T) {
-	_, err := parseInfos(&html.Node{}, audio{})
-
-	if err == nil {
-		t.Error("Expected to have error, got no error")
-	}
-}
-
-func TestScrapePageFail(t *testing.T) {
-	_, err := scrapePage("http://garbage.garbage")
-
-	if err == nil {
-		t.Error("Expected to have error, got no error")
 	}
 }
