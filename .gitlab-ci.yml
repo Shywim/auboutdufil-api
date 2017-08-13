@@ -1,0 +1,13 @@
+before_script:
+    - ln -s /builds /go/src/gilab.com
+    - cd /go/src/gitlab.com/Shywim/auboutdufil-api
+
+test:1.8:
+    image: golang:1.8
+    script:
+        - go test -coverprofile=coverage.txt -covermode=atomic
+        
+test:latest:
+    image: golang:latest
+    script:
+        - go test -coverprofile=coverage.txt -covermode=atomic
