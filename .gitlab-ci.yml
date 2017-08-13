@@ -1,5 +1,5 @@
 before_script:
-    - ln -s /builds /go/src/gilab.com
+    - ln -s /builds /go/src/gitlab.com
     - cd /go/src/gitlab.com/Shywim/auboutdufil-api
 
 test:1.8:
