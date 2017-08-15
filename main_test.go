@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+func utilLaunchServer() {
+	go serve("1234")
+}
+
 func TestRequestHash(t *testing.T) {
 	reqA := &request{
 		URL:  "/latest/licence/cc-by/mood/sad/genre/acoustique",
@@ -62,7 +66,7 @@ func checkHasMusic(t *testing.T, resp *http.Response) {
 }
 
 func TestServeLatest(t *testing.T) {
-	serve("1234")
+	utilLaunchServer()
 
 	resp, err := http.Get("http://localhost:1234/latest/license/cc-byncnd/genre/indie/mood/calm")
 	if err != nil {
@@ -74,7 +78,7 @@ func TestServeLatest(t *testing.T) {
 }
 
 func TestServeBest(t *testing.T) {
-	serve("1234")
+	utilLaunchServer()
 
 	resp, err := http.Get("http://localhost:1234/best/license/cc-byncnd/genre/indie?page=1&mood=calm")
 	if err != nil {
@@ -86,7 +90,7 @@ func TestServeBest(t *testing.T) {
 }
 
 func TestServeDownloads(t *testing.T) {
-	serve("1234")
+	utilLaunchServer()
 
 	resp, err := http.Get("http://localhost:1234/downloads/license/cc-byncnd?page=1&mood=calm&genre=indie")
 	if err != nil {
@@ -98,7 +102,7 @@ func TestServeDownloads(t *testing.T) {
 }
 
 func TestServePlays(t *testing.T) {
-	serve("1234")
+	utilLaunchServer()
 
 	resp, err := http.Get("http://localhost:1234/plays?page=1&mood=calm&genre=indie&license=cc-byncnd")
 	if err != nil {
@@ -110,7 +114,7 @@ func TestServePlays(t *testing.T) {
 }
 
 func TestHomeRedirect(t *testing.T) {
-	serve("1234")
+	utilLaunchServer()
 
 	client := &http.Client{
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
@@ -130,7 +134,7 @@ func TestHomeRedirect(t *testing.T) {
 }
 
 func TestMain(t *testing.T) {
-	main()
+	go main()
 
 	resp, err := http.Get("http://localhost:14000/latest")
 	if err != nil {
@@ -146,7 +150,7 @@ func TestMain(t *testing.T) {
 /* Test proper errors */
 
 func TestPathError(t *testing.T) {
-	serve("1234")
+	utilLaunchServer()
 
 	resp, err := http.Get("http://localhost:1234/garbage")
 	if err != nil {
@@ -160,7 +164,7 @@ func TestPathError(t *testing.T) {
 }
 
 func TestWrongParamNumber(t *testing.T) {
-	serve("1234")
+	utilLaunchServer()
 
 	resp, err := http.Get("http://localhost:1234/latest/1/2/3")
 	if err != nil {
@@ -174,7 +178,7 @@ func TestWrongParamNumber(t *testing.T) {
 }
 
 func TestUnknownParam(t *testing.T) {
-	serve("1234")
+	utilLaunchServer()
 
 	resp, err := http.Get("http://localhost:1234/latest/garbage/cc-by")
 	if err != nil {

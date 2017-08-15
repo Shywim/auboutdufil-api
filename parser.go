@@ -20,7 +20,7 @@ func getInfoDivs(parentNode *html.Node) []*html.Node {
 	}
 
 	notPure23Matcher := func(n *html.Node) bool {
-		return n.DataAtom == atom.Div && scrape.Attr(n, "class") != "pure-u-2-3"
+		return scrape.Attr(n, "class") != "pure-u-2-3" && (n.DataAtom == atom.Div || n.DataAtom == atom.Span)
 	}
 
 	divs := scrape.FindAll(infosParentDiv[0], notPure23Matcher)
@@ -61,9 +61,10 @@ func parseInfos(parentNode *html.Node, track *audio) {
 	divs := getInfoDivs(parentNode)
 
 	if divs != nil {
-		track.Title = getTitle(divs[3])
-		track.Artist, track.TrackURL = getArtist(divs[4])
-		track.Genres = getGenres(divs[6])
+		track.Title = getTitle(divs[2])
+		track.Artist, track.TrackURL = getArtist(divs[3])
+		track.Genres = getGenres(divs[5])
+		track.Date = getDate(divs[7])
 	}
 
 	return
@@ -100,9 +101,15 @@ func getDownloadURL(node *html.Node) string {
 }
 
 func getDate(div *html.Node) time.Time {
-	date := scrape.Text(div)
+	dateTag, ok := scrape.Find(div, scrape.ByTag(atom.I))
+	if !ok {
+		log.Error("Malformed html when looking for date")
+		return time.Time{}
+	}
+
+	date := scrape.Text(dateTag)
 	if date != "" {
-		dateTime, err := time.Parse(timeLayout, date)
+		dateTime, err := time.Parse(timeLayout, strings.TrimSpace(strings.Replace(date, "Publié le", "", -1)))
 		if err == nil {
 			return dateTime
 		}
@@ -113,7 +120,13 @@ func getDate(div *html.Node) time.Time {
 }
 
 func getRating(span *html.Node) float32 {
-	rating := scrape.Text(span)
+	ratingTag, ok := scrape.Find(span, scrape.ByClass("teil"))
+	if !ok {
+		log.Error("Malformed html when looking for rating")
+		return 0.0
+	}
+
+	rating := scrape.Text(ratingTag)
 	if rating != "" {
 		rating = strings.Replace(strings.TrimSpace(strings.Split(rating, "/")[0]), ",", ".", -1)
 		ratingFloat, err := strconv.ParseFloat(rating, 32)
@@ -127,9 +140,15 @@ func getRating(span *html.Node) float32 {
 }
 
 func getDownloadsCount(span *html.Node) int {
-	downloadsCount := scrape.Text(span)
+	downloadsCountTag, ok := scrape.Find(span, scrape.ByClass("fontbold"))
+	if !ok {
+		log.Error("Malformed html when looking for downloads")
+		return 0
+	}
+
+	downloadsCount := scrape.Text(downloadsCountTag)
 	if downloadsCount != "" {
-		downloadsCount = strings.Replace(downloadsCount, " ", "", -1)
+		downloadsCount = strings.TrimSuffix(strings.Replace(downloadsCount, " ", "", -1), "téléchargements")
 		downloads, err := strconv.Atoi(downloadsCount)
 		if err == nil {
 			return downloads
@@ -141,9 +160,15 @@ func getDownloadsCount(span *html.Node) int {
 }
 
 func getPlays(span *html.Node) int {
-	playsCount := scrape.Text(span)
+	playsCountTag, ok := scrape.Find(span, scrape.ByClass("fontbold"))
+	if !ok {
+		log.Error("Malformed html when looking for plays")
+		return 0
+	}
+
+	playsCount := scrape.Text(playsCountTag)
 	if playsCount != "" {
-		playsCount = strings.Replace(playsCount, " ", "", -1)
+		playsCount = strings.TrimSuffix(strings.Replace(playsCount, " ", "", -1), "écoutes")
 		plays, err := strconv.Atoi(playsCount)
 		if err == nil {
 			return plays
@@ -165,23 +190,17 @@ func getLicense(span *html.Node) string {
 }
 
 func parseAdditionalInfos(node *html.Node, track *audio) {
-	additionalInfosParent, ok := scrape.Find(node, scrape.ByClass("legenddata"))
-	if !ok {
+	additionalInfosTabs := scrape.FindAll(node, scrape.ByClass("tab2"))
+	if len(additionalInfosTabs) != 6 {
 		log.Error("Malformed html when looking for additional infos")
 		return
 	}
 
-	additionalInfosSpans := scrape.FindAll(additionalInfosParent, scrape.ByTag(atom.Span))
-	if len(additionalInfosSpans) != 5 {
-		log.Error("Malformed html when looking for additional infos")
-		return
-	}
-
-	track.Date = getDate(additionalInfosSpans[0])
-	track.Rating = getRating(additionalInfosSpans[1])
-	track.Downloads = getDownloadsCount(additionalInfosSpans[2])
-	track.Plays = getPlays(additionalInfosSpans[3])
-	track.License = getLicense(additionalInfosSpans[4])
+	//track.Date = getDate(additionalInfosTabs[0])
+	track.Plays = getPlays(additionalInfosTabs[0])
+	track.Downloads = getDownloadsCount(additionalInfosTabs[1])
+	track.License = getLicense(additionalInfosTabs[2])
+	track.Rating = getRating(additionalInfosTabs[3])
 
 	return
 }
@@ -211,25 +230,37 @@ func getPage(url string) (*html.Node, error) {
 	defer body.Close()
 
 	root, err := html.Parse(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return root, nil
+	return root, err
 }
 
 func getAudioDivs(root *html.Node) []*html.Node {
 	matcher := func(n *html.Node) bool {
-		if n.DataAtom == atom.Div && n.Parent != nil {
-			return strings.Contains(scrape.Attr(n, "class"), "audio-wrapper")
+		if n.DataAtom != atom.Div || n.Parent == nil {
+			return false
 		}
-		return false
+
+		if scrape.Attr(n, "class") != "box" {
+			return false
+		}
+
+		pg := scrape.FindAll(n, scrape.ByClass("pure-g"))
+		if len(pg) != 1 {
+			return false
+		}
+
+		c := scrape.FindAll(pg[0], scrape.ByClass("pure-u-md-1-2"))
+		if len(c) != 2 {
+			return false
+		}
+
+		return true
 	}
 
 	return scrape.FindAllNested(root, matcher)
 }
 
 func scrapePage(url string) (tracks []*audio, err error) {
+	log.WithFields(log.Fields{"url": url}).Info("Start scraping...")
 	root, err := getPage(url)
 	if err != nil {
 		return tracks, err

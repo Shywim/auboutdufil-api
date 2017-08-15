@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetPage(t *testing.T) {
-	_, err := getPage(baseURL + "sort=latest")
+	_, err := getPage(baseURL + "sort=posted")
 
 	if err != nil {
 		t.Error("Expected no error, got ", err)
@@ -15,7 +15,7 @@ func TestGetPage(t *testing.T) {
 }
 
 func TestGetAudioDivs(t *testing.T) {
-	root, err := getPage(baseURL + "sort=latest")
+	root, err := getPage(baseURL + "sort=posted")
 
 	if err != nil {
 		t.Error("Dependency not met")
@@ -24,13 +24,13 @@ func TestGetAudioDivs(t *testing.T) {
 
 	audioDivs := getAudioDivs(root)
 
-	if len(audioDivs) != 6 {
-		t.Error("Expected to find 6 audio divs, got", len(audioDivs))
+	if len(audioDivs) != 12 {
+		t.Error("Expected to find 12 audio divs, got", len(audioDivs))
 	}
 }
 
 func TestGetInfoDivs(t *testing.T) {
-	root, err := getPage(baseURL + "sort=latest")
+	root, err := getPage(baseURL + "sort=posted")
 
 	if err != nil {
 		t.Error("Dependency not met")

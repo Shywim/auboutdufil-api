@@ -3,8 +3,8 @@ BINARY="abdf"
 .PHONY: all
 all: abdf
 
-abdf: main.go
-	go build -o ${BINARY} main.go
+abdf: main.go parser.go
+	go build .
 
 .PHONY: clean
 clean:

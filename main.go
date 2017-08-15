@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"net/http"
 	"strconv"
@@ -82,6 +83,34 @@ func handleRequestOptions(query url.Values, opts *requestOptions) {
 	return
 }
 
+func getOptionsFromPath(path string, opt *requestOptions) error {
+	paths := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	pathsLen := len(paths)
+	if pathsLen != 0 && pathsLen != 2 && pathsLen != 4 && pathsLen != 6 {
+		return errors.New("Unsupported operation")
+	}
+
+	for i := 0; i < pathsLen; i = i + 2 {
+		p := paths[i]
+
+		switch p {
+		case "license":
+			opt.license = paths[i+1]
+			break
+		case "mood":
+			opt.mood = paths[i+1]
+			break
+		case "genre":
+			opt.genre = paths[i+1]
+			break
+		default:
+			return errors.New("Unsupported operation")
+		}
+	}
+
+	return nil
+}
+
 func getRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params) (req *request) {
 	req = &request{}
 	req.options = &requestOptions{}
@@ -110,30 +139,10 @@ func getRequest(w http.ResponseWriter, r *http.Request, ps httprouter.Params) (r
 		return
 	}
 
-	paths := strings.Split(strings.TrimPrefix(path, "/"), "/")
-	pathsLen := len(paths)
-	if pathsLen != 0 && pathsLen != 2 && pathsLen != 4 && pathsLen != 6 {
+	err := getOptionsFromPath(path, req.options)
+	if err != nil {
 		http.Error(w, "Unsupported operation", http.StatusBadRequest)
 		return
-	}
-
-	for i := 0; i < pathsLen; i = i + 2 {
-		p := paths[i]
-
-		switch p {
-		case "license":
-			req.options.license = paths[i+1]
-			break
-		case "mood":
-			req.options.mood = paths[i+1]
-			break
-		case "genre":
-			req.options.genre = paths[i+1]
-			break
-		default:
-			http.Error(w, "Unsupported operation", http.StatusBadRequest)
-			break
-		}
 	}
 
 	handleRequestOptions(queryParams, req.options)
@@ -190,7 +199,7 @@ func redirectHomepage(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 func serve(port string) {
 	server := httprouter.New()
 	server.GET("/", redirectHomepage)
-	// we define explicitely the 4 routes so with have 'path' in params and let the router
+	// we define explicitly the 4 routes so we have 'path' in params and let the router
 	// handles 404s
 	server.GET("/latest/*path", handleRequest)
 	server.GET("/best/*path", handleRequest)
@@ -201,7 +210,7 @@ func serve(port string) {
 		"port": port,
 	}).Info("Starting HTTP Server")
 
-	go http.ListenAndServe(":"+port, server)
+	http.ListenAndServe(":"+port, server)
 }
 
 func main() {
