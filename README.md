@@ -34,7 +34,7 @@ The server answers with JSON data with the following model:
 
 ## Endpoints
 
-Each query give a response with (at most) 6 musics. You can add a `page` query param to get more musics, starting at 1.
+Each query give a response with (at most) 12 musics. You can add a `page` query param to get more musics, starting at 1.
 
 ### `/latest`
 
