@@ -68,7 +68,7 @@ func checkHasMusic(t *testing.T, resp *http.Response) {
 func TestServeLatest(t *testing.T) {
 	utilLaunchServer()
 
-	resp, err := http.Get("http://localhost:1234/latest/license/cc-byncnd/genre/indie/mood/calm")
+	resp, err := http.Get("http://localhost:1234/latest/license/CC-BYNCND/genre/indie/mood/calm")
 	if err != nil {
 		t.Error("Expected no error, got", err)
 		return
@@ -80,7 +80,7 @@ func TestServeLatest(t *testing.T) {
 func TestServeBest(t *testing.T) {
 	utilLaunchServer()
 
-	resp, err := http.Get("http://localhost:1234/best/license/cc-byncnd/genre/indie?page=1&mood=calm")
+	resp, err := http.Get("http://localhost:1234/best/license/CC-BYNCND/genre/indie?page=1&mood=calm")
 	if err != nil {
 		t.Error("Expected no error, got", err)
 		return
@@ -92,7 +92,7 @@ func TestServeBest(t *testing.T) {
 func TestServeDownloads(t *testing.T) {
 	utilLaunchServer()
 
-	resp, err := http.Get("http://localhost:1234/downloads/license/cc-byncnd?page=1&mood=calm&genre=indie")
+	resp, err := http.Get("http://localhost:1234/downloads/license/CC-BYNCND?page=1&mood=calm&genre=indie")
 	if err != nil {
 		t.Error("Expected no error, got", err)
 		return
@@ -104,7 +104,7 @@ func TestServeDownloads(t *testing.T) {
 func TestServePlays(t *testing.T) {
 	utilLaunchServer()
 
-	resp, err := http.Get("http://localhost:1234/plays?page=1&mood=calm&genre=indie&license=cc-byncnd")
+	resp, err := http.Get("http://localhost:1234/plays?page=1&mood=calm&genre=indie&license=CC-BYNCND")
 	if err != nil {
 		t.Error("Expected no error, got", err)
 		return
